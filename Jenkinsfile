@@ -111,13 +111,14 @@ spec:
                     sh '''
                         opa_test() {
                             local desc="$1" user="$2" action="$3" expect="$4"
+                            PAYLOAD='{"input": {"user": "'"$user"'", "action": "'"$action"'"}}'
                             RESULT=$(kubectl exec -n lab9 deploy/opa -- \
-                              wget -qO- \
-                              --post-data "{\"input\": {\"user\": \"$user\", \"action\": \"$action\"}}" \
-                              --header "Content-Type: application/json" \
-                              http://localhost:8181/v1/data/lab/allow 2>/dev/null)
+                            wget -qO- \
+                            --post-data "$PAYLOAD" \
+                            --header "Content-Type: application/json" \
+                            http://localhost:8181/v1/data/lab/allow 2>/dev/null)
                             ACTUAL=$(echo "$RESULT" | python3 -c \
-                              "import sys,json; print(json.load(sys.stdin).get('result', False))" 2>/dev/null)
+                            "import sys,json; print(json.load(sys.stdin).get('result', False))" 2>/dev/null)
                             if [ "$ACTUAL" = "$expect" ]; then
                                 echo "  PASS  $desc"
                             else
