@@ -12,7 +12,10 @@ pipeline {
         // ── Concept: Infrastructure as Code ─────────────────────────────────
         stage('Export Kubeconfig') {
             steps {
-                sh 'sudo microk8s config > /tmp/microk8s-config.yaml'
+                sh '''
+                    sudo microk8s config > /tmp/microk8s-config.yaml
+                    chmod 644 /tmp/microk8s-config.yaml
+                    '''
             }
         }
 
@@ -22,9 +25,9 @@ pipeline {
         stage('Terraform Apply') {
             steps {
                 dir('terraform') {
-                    sh '$TERRAFORM init -input=false -plugin-dir=$PLUGINS'
-                    sh '$TERRAFORM apply -auto-approve'
-                    sh '$TERRAFORM show'   // log declared state as proof
+                    sh "$TERRAFORM init -input=false -plugin-dir=$PLUGINS"
+                    sh "$TERRAFORM apply -auto-approve"
+                    sh "$TERRAFORM show"
                 }
             }
         }
