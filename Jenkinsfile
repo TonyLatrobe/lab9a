@@ -229,12 +229,12 @@ spec:
                         echo "==> Appending deny_delete rule to policy.rego"
                         cat >> opa/policy.rego << 'REGO'
 
-# Nobody except admin can delete
-deny_delete if {
-    input.action == "delete"
-    input.user != "admin"
-}
-REGO
+                        # Nobody except admin can delete
+                        deny_delete if {
+                            input.action == "delete"
+                            input.user != "admin"
+                        }
+                        REGO
 
                         echo "==> Re-creating opa-policy ConfigMap from updated file"
                         kubectl create configmap opa-policy -n lab9 \
@@ -289,14 +289,7 @@ REGO
                         echo ""
                         echo "==> Verifying lab9 namespace is gone:"
                         kubectl get namespace lab9 2>&1 || true
-
-                        echo ""
-                        echo "==> Deleting Jenkins (devops namespace):"
-                        kubectl delete namespace devops --ignore-not-found=true
-
-                        echo ""
-                        echo "==> Verifying devops namespace is gone:"
-                        kubectl get namespace devops 2>&1 || true
+                        
                     '''
                 }
             }
