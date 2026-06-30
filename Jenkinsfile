@@ -153,7 +153,7 @@ spec:
                         app_test() {
                             local desc="$1" path="$2" expect_allowed="$3"
                             RESULT=$(kubectl exec -n lab9 deploy/lab9-app -- \
-                            wget -qO- "http://127.0.0.1:3000${path}" 2>/dev/null)
+                            curl -s "http://127.0.0.1:3000${path}" 2>/dev/null)
                             echo "  $desc → $RESULT"
                             if [ -n "$expect_allowed" ]; then
                                 ACTUAL=$(echo "$RESULT" | python3 -c \
