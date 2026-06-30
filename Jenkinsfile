@@ -153,11 +153,11 @@ spec:
                         app_test() {
                             local desc="$1" path="$2" expect_allowed="$3"
                             RESULT=$(kubectl exec -n lab9 deploy/lab9-app -- \
-                              wget -qO- "http://localhost:3000${path}" 2>/dev/null)
+                            wget -qO- "http://127.0.0.1:3000${path}" 2>/dev/null)
                             echo "  $desc → $RESULT"
                             if [ -n "$expect_allowed" ]; then
                                 ACTUAL=$(echo "$RESULT" | python3 -c \
-                                  "import sys,json; print(json.load(sys.stdin).get('allowed', False))" 2>/dev/null)
+                                "import sys,json; print(json.load(sys.stdin).get('allowed', False))" 2>/dev/null)
                                 if [ "$ACTUAL" = "$expect_allowed" ]; then
                                     echo "  PASS"
                                 else
@@ -180,7 +180,6 @@ spec:
                 }
             }
         }
-
         // ── Concept: Policy is live-updatable — add charlie without touching
         //    any application code. Since policy.rego is served from a
         //    ConfigMap (not a hostPath), the ConfigMap must be re-created

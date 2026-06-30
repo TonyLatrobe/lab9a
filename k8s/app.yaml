@@ -40,6 +40,8 @@ spec:
               value: "3000"
             - name: APP_NAME
               value: "lab9-app"
+            - name: PYTHONUNBUFFERED
+              value: "1"
           resources:
             requests: { cpu: 50m, memory: 64Mi }
             limits:   { cpu: 200m, memory: 128Mi }
