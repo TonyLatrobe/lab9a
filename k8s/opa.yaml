@@ -1,0 +1,61 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opa
+  namespace: lab9
+  labels:
+    app: opa
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opa
+  template:
+    metadata:
+      labels:
+        app: opa
+    spec:
+      volumes:
+        - name: policy
+          hostPath:
+            path: /tmp/opa-policy-placeholder
+            type: Directory
+      containers:
+        - name: opa
+          image: localhost:32000/python-ci:lab
+          imagePullPolicy: IfNotPresent
+          command: [opa, run, --server, --addr, "0.0.0.0:8181", /policies/policy.rego]
+          ports:
+            - containerPort: 8181
+          volumeMounts:
+            - name: policy
+              mountPath: /policies
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits:   { cpu: 200m, memory: 128Mi }
+          readinessProbe:
+            httpGet: { path: /health, port: 8181 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            httpGet: { path: /health, port: 8181 }
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            failureThreshold: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: opa
+  namespace: lab9
+  labels:
+    app: opa
+spec:
+  selector:
+    app: opa
+  ports:
+    - port: 8181
+      targetPort: 8181
+  type: ClusterIP
