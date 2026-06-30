@@ -10,9 +10,7 @@ terraform {
   }
 }
 
-provider "kubernetes" {
-  config_path = "/tmp/microk8s-config.yaml"
-}
+provider "kubernetes" {}
 
 resource "kubernetes_namespace" "lab9" {
   metadata {
