@@ -18,9 +18,8 @@ spec:
     spec:
       volumes:
         - name: policy
-          hostPath:
-            path: /tmp/opa-policy-placeholder
-            type: Directory
+          configMap:
+            name: opa-policy
       containers:
         - name: opa
           image: localhost:32000/python-ci:lab

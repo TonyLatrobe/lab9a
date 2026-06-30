@@ -24,29 +24,39 @@ spec:
 
     stages {
 
+        // ── Concept: Declarative IaC — describe desired state, Terraform
+        //    calculates what needs to change and applies only the diff.
+        //    Jenkins (devops namespace) is never in Terraform state.
         stage('Terraform Apply') {
             steps {
                 container('tools') {
                     dir('terraform') {
                         sh '$TERRAFORM init -input=false -plugin-dir=$PLUGINS'
                         sh '$TERRAFORM apply -auto-approve'
-                        sh '$TERRAFORM show'
+                        sh '$TERRAFORM show'   // log declared state as proof
                     }
                 }
             }
         }
 
+        // ── Concept: Ephemeral Environments — policy and app source are
+        //    materialized as ConfigMaps from the Jenkins workspace, since
+        //    hostPath cannot be used (build pod and target pods may land
+        //    on different nodes / different filesystems entirely).
         stage('Deploy OPA & App') {
             steps {
                 container('tools') {
                     sh '''
-                        kubectl apply -f k8s/opa.yaml
-                        kubectl patch deployment opa -n lab9 --type=json -p \
-                          "[{\"op\":\"replace\",\"path\":\"/spec/template/spec/volumes/0/hostPath/path\",\"value\":\"$WORKSPACE/opa\"}]"
+                        kubectl create configmap opa-policy -n lab9 \
+                          --from-file=policy.rego=opa/policy.rego \
+                          --dry-run=client -o yaml | kubectl apply -f -
 
+                        kubectl create configmap lab9-app-src -n lab9 \
+                          --from-file=server.py=app/server.py \
+                          --dry-run=client -o yaml | kubectl apply -f -
+
+                        kubectl apply -f k8s/opa.yaml
                         kubectl apply -f k8s/app.yaml
-                        kubectl patch deployment lab9-app -n lab9 --type=json -p \
-                          "[{\"op\":\"replace\",\"path\":\"/spec/template/spec/volumes/0/hostPath/path\",\"value\":\"$WORKSPACE/app\"}]"
 
                         kubectl rollout status deployment/opa -n lab9 --timeout=90s
                         kubectl rollout status deployment/lab9-app -n lab9 --timeout=90s
@@ -56,6 +66,9 @@ spec:
             }
         }
 
+        // ── Concept: Drift Detection — simulate an ops engineer manually
+        //    patching the resource quota (a common real-world drift scenario).
+        //    Terraform detects the out-of-band change and corrects it.
         stage('Drift Detection') {
             steps {
                 container('tools') {
@@ -89,6 +102,9 @@ spec:
             }
         }
 
+        // ── Concept: Policy-as-Code — OPA evaluates every request against
+        //    the Rego policy file and returns true/false. Tests run inside
+        //    the OPA pod via kubectl exec — no port-forwarding needed.
         stage('OPA Smoke Tests') {
             steps {
                 container('tools') {
@@ -127,6 +143,8 @@ spec:
             }
         }
 
+        // ── Concept: End-to-end validation — the app is tested directly
+        //    via kubectl exec to confirm health and OPA integration.
         stage('App Smoke Tests') {
             steps {
                 container('tools') {
@@ -162,6 +180,11 @@ spec:
             }
         }
 
+        // ── Concept: Policy is live-updatable — add charlie without touching
+        //    any application code. Since policy.rego is served from a
+        //    ConfigMap (not a hostPath), the ConfigMap must be re-created
+        //    from the edited file, then the OPA deployment restarted so it
+        //    re-reads the new mounted content.
         stage('Policy Update: Add charlie') {
             steps {
                 container('tools') {
@@ -169,6 +192,11 @@ spec:
                         echo "==> Updating policy: adding charlie to allowed_users"
                         sed -i 's/allowed_users := {"alice", "bob", "admin"}/allowed_users := {"alice", "bob", "admin", "charlie"}/' opa/policy.rego
                         grep "allowed_users" opa/policy.rego
+
+                        echo "==> Re-creating opa-policy ConfigMap from updated file"
+                        kubectl create configmap opa-policy -n lab9 \
+                          --from-file=policy.rego=opa/policy.rego \
+                          --dry-run=client -o yaml | kubectl apply -f -
 
                         kubectl rollout restart deployment/opa -n lab9
                         kubectl rollout status deployment/opa -n lab9 --timeout=60s
@@ -191,6 +219,9 @@ spec:
             }
         }
 
+        // ── Concept: New policy rules are code — add an admin-only delete
+        //    restriction without modifying any application code. Same
+        //    ConfigMap re-create + restart pattern as above.
         stage('Policy Update: Admin-only Delete Rule') {
             steps {
                 container('tools') {
@@ -204,6 +235,11 @@ deny_delete if {
     input.user != "admin"
 }
 REGO
+
+                        echo "==> Re-creating opa-policy ConfigMap from updated file"
+                        kubectl create configmap opa-policy -n lab9 \
+                          --from-file=policy.rego=opa/policy.rego \
+                          --dry-run=client -o yaml | kubectl apply -f -
 
                         kubectl rollout restart deployment/opa -n lab9
                         kubectl rollout status deployment/opa -n lab9 --timeout=60s
@@ -239,6 +275,9 @@ REGO
             }
         }
 
+        // ── Concept: Full teardown — lab9 is destroyed by Terraform.
+        //    Jenkins in devops is deleted separately.
+        //    Nothing is left behind.
         stage('Teardown') {
             steps {
                 container('tools') {

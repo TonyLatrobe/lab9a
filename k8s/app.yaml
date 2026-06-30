@@ -21,9 +21,8 @@ spec:
         runAsUser: 1000
       volumes:
         - name: app-source
-          hostPath:
-            path: /tmp/app-placeholder
-            type: Directory
+          configMap:
+            name: lab9-app-src
       containers:
         - name: lab9-app
           image: localhost:32000/python-ci:lab
